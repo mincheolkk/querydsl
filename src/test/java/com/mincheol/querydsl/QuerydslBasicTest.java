@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 
+import static com.mincheol.querydsl.entity.QMember.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,7 +28,7 @@ public class QuerydslBasicTest {
 
     @BeforeEach
     public void before() {
-
+        queryFactory = new JPAQueryFactory(em);
         Team teamA = new Team("teamA");
         Team teamB = new Team("teamB");
 
@@ -65,13 +66,37 @@ public class QuerydslBasicTest {
     @Test
     public void startQuerydsl() {
 //        JPAQueryFactory queryFactory = new JPAQueryFactory(em);  밖으로 빼서 필드레벌로 둬도 됌.
-        queryFactory = new JPAQueryFactory(em);
-        QMember m = new QMember("m");
+
+        // Q 클래스 인스턴스 사용하는 법 .
+//        QMember m = new QMember("m");        // 1. 별칭 직접 지정
+//        QMember qMember = QMember.member;    // 2. 기본 인스턴스 사용 ( 아래 member처럼 static 임포트 가능)
 
         Member findMember = queryFactory
-                .select(m)
-                .from(m)
-                .where(m.username.eq("member1"))
+                .select(member)
+                .from(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        assertThat(findMember.getUsername()).isEqualTo("member1");
+    }
+
+    @Test
+    public void search() {
+        Member findMember = queryFactory
+                .selectFrom(member) // == select(member).from(member)
+                .where(member.username.eq("member1")
+                        .and(member.age.between(10,30)))
+                .fetchOne();
+
+        assertThat(findMember.getUsername()).isEqualTo("member1");
+    }
+
+    @Test
+    public void searchAndParam() {
+        Member findMember = queryFactory
+                .selectFrom(member) // == select(member).from(member)
+                .where(member.username.eq("member1")
+                        ,member.age.eq(10))   // 여러개를 넘기면 다 and 또한 여러 개 중에 null 이 있으면 null 무시함. 동적쿼리에 좋음 .
                 .fetchOne();
 
         assertThat(findMember.getUsername()).isEqualTo("member1");

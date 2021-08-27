@@ -12,10 +12,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-
+//@Commit  @Commit을 하면 다음 테스트에도 데이터가 남아 있기 때문에 주석 처리.
 @SpringBootTest
 @Transactional
-@Commit
 public class MemberTest {
 
     @Autowired

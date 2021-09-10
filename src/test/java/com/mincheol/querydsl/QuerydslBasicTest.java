@@ -235,5 +235,47 @@ public class QuerydslBasicTest {
         assertThat(teamB.get(team.name)).isEqualTo("teamB");
         assertThat(teamB.get(member.age.avg())).isEqualTo(35);
     }
+
+    /**
+     * 팀 A에 소속된 모든 회원
+     */
+    @Test
+    public void join() {
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .join(member.team, team)  // join 과 innerjoin은 같음
+                .where(team.name.eq("teamA"))
+                .fetch();
+
+        assertThat(result)
+                .extracting("username")
+                .containsExactly("member1", "member2");
+    }
+
+    // 연관관계 없어도 조인 할 수 있음
+    /**
+     *  세타 조인
+     *  회원의 이름이 팀 이름과 같은 회원 조회
+     */
+    @Test
+    public void theta_join() {
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+        em.persist(new Member("teamC"));
+
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member, team)         // 모든 회원, 모든 팀을 다 가져오고 이걸 다 조인함.
+                .where(member.username.eq(team.name))   // 조인한 테이블에서, where 절로 필터링 ( 멤버 이름과 팀의 이름이 같은걸 찾음)
+                .fetch();
+
+        assertThat(result)
+                .extracting("username")
+                .containsExactly("teamA", "teamB");
+
+        // 세타 조인은 left, outer 조인이 불가능 (외부 조인 불가능)
+
+
+    }
 }
 

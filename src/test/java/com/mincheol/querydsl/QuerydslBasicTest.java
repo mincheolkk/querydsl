@@ -274,7 +274,95 @@ public class QuerydslBasicTest {
                 .containsExactly("teamA", "teamB");
 
         // 세타 조인은 left, outer 조인이 불가능 (외부 조인 불가능)
+    }
 
+    /**
+     *  ex) 회원과 팀을 조인하면서, 팀 이름이 teamA 인 팀만 조인, 회원은 모두 조회
+     *  JPQL : select m, t from Member m left join m.team on t.name = 'teamA'
+     */
+    @Test
+    public void join_on_filtering() {
+        List<Tuple> result = queryFactory
+                .select(member, team)  // select 가 member, team 두 개의 다른 타입이니 결과는 Tuple
+                .from(member)
+                .leftJoin(member.team, team).on(team.name.eq("teamA"))
+                // leftjoin 이기 때문에 member 를 기준으로 member 데이터들은 모두 가져옴.
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+            // 결과. leftjoin 이기에 member3,4 도 나옴. join 일 때는 안 나옴.
+
+//            tuple = [Member(id=3, username=member1, age=10), Team(id=1, name=teamA)]
+//            tuple = [Member(id=4, username=member2, age=20), Team(id=1, name=teamA)]
+//            tuple = [Member(id=5, username=member3, age=30), null]
+//            tuple = [Member(id=6, username=member4, age=40), null]
+
+            // 특히, join 일 때는 on 절 대신 where 절을 써도 동일하게 필터링 됨.
+        }
+    }
+
+    /**
+     *  연관 관계가 없는 엔티티 외주 조인
+     *  회원의 이름이 팀 이름과 같은 대상을 외부 조인
+     */
+    @Test
+    public void join_on_no_relation() {
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+        em.persist(new Member("teamC"));
+
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(team).on(member.username.eq(team.name))  // leftjoin() 부분에 일반조인과 다르게 엔티티 하나만 들어감.
+                .fetch();
+
+        // 일반 조인 : leftJoin(member.team, team)   member의 FK 값을 team 의 PK 와 연결.
+        // on 조인 : from(member).leftJoin(team).on(xxx)
+
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+            // soutv 결과
+//            tuple = [Member(id=3, username=member1, age=10), null]
+//            tuple = [Member(id=4, username=member2, age=20), null]
+//            tuple = [Member(id=5, username=member3, age=30), null]
+//            tuple = [Member(id=6, username=member4, age=40), null]
+//            tuple = [Member(id=7, username=teamA, age=0), Team(id=1, name=teamA)]
+//            tuple = [Member(id=8, username=teamB, age=0), Team(id=2, name=teamB)]
+            // member.username 과 team.name 이 같은 경우에만 team을 조인함
+//            tuple = [Member(id=9, username=teamC, age=0), null]
+
+            // sql 일부
+//            left outer join
+//            team team1_
+//            on (
+//                    member0_.username=team1_.name
+//            )
+
+            /**
+             *  기존 스타일로 leftjoin 일 때, sql 비교
+             *  .leftJoin(member.team, team).on(member.username.eq(team.name))
+             */
+            // sql 결과
+//            left outer join
+//            team team1_
+//            on member0_.team_id=team1_.team_id
+//            and (
+//                    member0_.username=team1_.name
+//            )
+            // soutv 결과
+//            tuple = [Member(id=3, username=member1, age=10), null]
+//            tuple = [Member(id=4, username=member2, age=20), null]
+//            tuple = [Member(id=5, username=member3, age=30), null]
+//            tuple = [Member(id=6, username=member4, age=40), null]
+//            tuple = [Member(id=7, username=teamA, age=0), null]
+//            tuple = [Member(id=8, username=teamB, age=0), null]
+//            tuple = [Member(id=9, username=teamC, age=0), null]
+
+
+        }
 
     }
 }

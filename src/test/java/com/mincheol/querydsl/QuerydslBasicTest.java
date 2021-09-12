@@ -6,6 +6,7 @@ import com.mincheol.querydsl.entity.QTeam;
 import com.mincheol.querydsl.entity.Team;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -400,5 +401,135 @@ public class QuerydslBasicTest {
     }
     // fetch join 이라는 기능 자체의 핵심은 연관된 엔티티를 한번에 최적화해서 조회하는 기능.
     // 그래서 LAZY가 발생하지 않음.
+
+    /**
+     * 나이가 가장 많은 회원 조회
+     */
+    @Test
+    public void subQuery() {
+
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(
+                        JPAExpressions
+                                .select(memberSub.age.max())
+                                .from(memberSub)
+                ))
+                .fetch();
+
+        // SQL 결과
+//        /* select
+//        member1
+//    from
+//        Member member1
+//    where
+//        member1.age = (
+//            select
+//                max(memberSub.age)
+//            from
+//                Member memberSub
+//        ) */ select
+//        member0_.member_id as member_i1_1_,
+//                member0_.age as age2_1_,
+//        member0_.team_id as team_id4_1_,
+//                member0_.username as username3_1_
+//        from
+//        member member0_
+//        where
+//        member0_.age=(
+//                select
+//        max(member1_.age)
+//        from
+//        member member1_
+//            )
+
+        System.out.println("result = " + result);
+        // result = [Member(id=6, username=member4, age=40)]
+
+        assertThat(result).extracting("age")
+                .containsExactly(40);
+    }
+
+    /**
+     * 나이가 평균 이상인 회원
+     */
+    @Test
+    public void subQueryGoe() {
+
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.goe(
+                        JPAExpressions
+                                .select(memberSub.age.avg())
+                                .from(memberSub)
+                ))
+                .fetch();
+
+        System.out.println("result = " + result);
+        // result = [Member(id=5, username=member3, age=30), Member(id=6, username=member4, age=40)]
+
+        assertThat(result).extracting("age")
+                .containsExactly(30, 40);
+    }
+
+    /**
+     * 특정 나이 이상인 회원
+     */
+    @Test
+    public void subQueryIn() {
+
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.in(
+                        JPAExpressions
+                                .select(memberSub.age)
+                                .from(memberSub)
+                                .where(memberSub.age.gt(10))
+                ))
+                .fetch();
+
+        System.out.println("result = " + result);
+        // result = [Member(id=4, username=member2, age=20), Member(id=5, username=member3, age=30), Member(id=6, username=member4, age=40)]
+
+        assertThat(result).extracting("age")
+                .containsExactly(20, 30, 40);
+    }
+
+    @Test
+    public void selectSubQuery() {
+
+        QMember memberSub = new QMember("memberSub");
+
+        List<Tuple> result = queryFactory
+                .select(member.username,
+                        JPAExpressions
+                                .select(memberSub.age.avg())
+                                .from(memberSub))
+                .from(member)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+//            tuple = [member1, 25.0]
+//            tuple = [member2, 25.0]
+//            tuple = [member3, 25.0]
+//            tuple = [member4, 25.0]
+        }
+    }
+
+    /**
+     *  JPA JPQL 서브쿼리는 where,select 에서는 사용가능
+     *  하지만 from 절에선 불가
+     *  이를 위한 해결책
+     *  1. from 절에서는 서브쿼리를 join으로 변경(불가능한 상황도 있음)
+     *  2. 쿼리를 2번으로 분리해서 실행
+     *  3. nativeSQL 을 사용.
+     */
 }
 

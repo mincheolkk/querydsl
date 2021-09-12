@@ -6,6 +6,8 @@ import com.mincheol.querydsl.entity.QTeam;
 import com.mincheol.querydsl.entity.Team;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.assertj.core.api.Assertions;
@@ -522,14 +524,77 @@ public class QuerydslBasicTest {
 //            tuple = [member4, 25.0]
         }
     }
-
     /**
-     *  JPA JPQL 서브쿼리는 where,select 에서는 사용가능
-     *  하지만 from 절에선 불가
-     *  이를 위한 해결책
-     *  1. from 절에서는 서브쿼리를 join으로 변경(불가능한 상황도 있음)
-     *  2. 쿼리를 2번으로 분리해서 실행
-     *  3. nativeSQL 을 사용.
+     * JPA JPQL 서브쿼리는 where,select 에서는 사용가능
+     * 하지만 from 절에선 불가
+     * 이를 위한 해결책
+     * 1. from 절에서는 서브쿼리를 join으로 변경(불가능한 상황도 있음)
+     * 2. 쿼리를 2번으로 분리해서 실행
+     * 3. nativeSQL 을 사용.
      */
+
+    // case 문 - select, where 절에서 사용 가능.
+    @Test
+    public void basicCase() {
+        List<String> result = queryFactory
+                .select(member.age
+                        .when(10).then("열 살")
+                        .when(20).then("스무살")
+                        .otherwise("기타"))
+                .from(member)
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+    @Test
+    public void complexCase() {
+        List<String> result = queryFactory
+                .select(new CaseBuilder()
+                        .when(member.age.between(0, 20)).then("0~20")
+                        .when(member.age.between(21, 30)).then("21~30")
+                        .otherwise("기타"))
+                .from(member)
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+    @Test
+    public void constant() {
+        List<Tuple> result = queryFactory
+                .select(member.username, Expressions.constant("A"))
+                .from(member)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+//            tuple = [member1, A]
+//            tuple = [member2, A]
+//            tuple = [member3, A]
+//            tuple = [member4, A]
+            // 결과에서만 상수 A 가 나옴
+        }
+    }
+
+    @Test
+    public void concat() {
+
+        // {username}_{age}
+        List<String> result = queryFactory
+                .select(member.username.concat("_").concat(member.age.stringValue()))
+                .from(member)
+                .where(member.username.eq("member1"))
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+            // s = member1_10
+        }
+    }
 }
 

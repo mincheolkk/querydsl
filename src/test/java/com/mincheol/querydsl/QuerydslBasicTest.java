@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.persistence.PersistenceUnit;
 
 import java.util.List;
@@ -360,10 +361,44 @@ public class QuerydslBasicTest {
 //            tuple = [Member(id=7, username=teamA, age=0), null]
 //            tuple = [Member(id=8, username=teamB, age=0), null]
 //            tuple = [Member(id=9, username=teamC, age=0), null]
-
-
         }
-
     }
+
+    @PersistenceUnit
+    EntityManagerFactory emf;
+
+    @Test
+    public void fetchJoinNo() {
+        em.flush();
+        em.clear();
+
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+        // 로딩된 엔티티인지, 초기화가 안 된 엔티티인지 알려줌
+
+        assertThat(loaded).as("패치 조인 미적용").isFalse();
+    }
+
+    @Test
+    public void fetchJoinUse() {
+        em.flush();
+        em.clear();
+
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .join(member.team, team).fetchJoin()
+                .where(member.username.eq("member1"))
+                .fetchOne();
+
+        boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+
+        assertThat(loaded).as("패치 조인 적용").isTrue();
+    }
+    // fetch join 이라는 기능 자체의 핵심은 연관된 엔티티를 한번에 최적화해서 조회하는 기능.
+    // 그래서 LAZY가 발생하지 않음.
 }
 

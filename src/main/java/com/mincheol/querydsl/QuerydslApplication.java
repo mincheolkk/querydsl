@@ -10,4 +10,8 @@ public class QuerydslApplication {
 		SpringApplication.run(QuerydslApplication.class, args);
 	}
 
+	void git_test() {
+
+	}
+
 }
